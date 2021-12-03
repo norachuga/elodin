@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace Elodin.Core
 {
@@ -7,6 +6,10 @@ namespace Elodin.Core
     {
         private readonly MarkovChain _chain;
         private readonly List<string> _sourceNames;
+
+        // when working with small datasets, you may end up unable to generate new or unique names.
+        // So a cap is needed to prevent infinite loops.
+        private const int MaxAttempts = 25; 
 
         public NameGenerator(int stateDepth, IEnumerable<string> names)
         {
@@ -45,9 +48,13 @@ namespace Elodin.Core
         public string GenerateNewName()
         {
             string name;
+            int attempts = 0;
             do
             {
                 name = GenerateName();
+
+                ThrowIfTooManyAttempts(attempts);
+
             } while (_sourceNames.Contains(name));
 
             return name;
@@ -86,7 +93,7 @@ namespace Elodin.Core
         /// </summary>
         public IEnumerable<string> GenerateUniqueNames(int count)
         {
-            const int maxAttempts = 25;
+            
             var names = new List<string>();
             for (int i = 0; i < count; i++)
             {
@@ -95,10 +102,8 @@ namespace Elodin.Core
                 do
                 {
                     name = GenerateNewName();
-                    attempts++;
 
-                    if (attempts > maxAttempts)
-                        throw new Exception("Exceeded max attempts to get a unique name. The desired count may be higher than the source data can produce.");
+                    ThrowIfTooManyAttempts(attempts);
 
                 } while (names.Contains(name));
 
@@ -106,6 +111,17 @@ namespace Elodin.Core
             }
 
             return names;
+        }
+
+        /// <summary>
+        /// Increments attempt counter and throws if it exceeds the MaxAttempts const
+        /// </summary>
+        private void ThrowIfTooManyAttempts(int attempts)
+        {
+            attempts++; 
+
+            if (attempts > MaxAttempts)
+                throw new InsufficientSourceDataException("Exceeded max attempts to get a new or unique name. The desired count may be higher than the source data can produce.");
         }
     }
 }
